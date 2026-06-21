@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cevichería - Sistema de Pedidos</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="google-secure-config.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- Pantalla de Login -->
+        <div id="loginScreen" class="screen active">
+            <div class="container">
+                <div class="logo">
+                    <h1>🐟 Cevichería</h1>
+                    <p>Sistema de Pedidos</p>
+                </div>
+                <form id="loginForm" class="login-form">
+                    <div class="form-group">
+                        <label for="username">Usuario</label>
+                        <input type="text" id="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Contraseña</label>
+                        <input type="password" id="password" required>
+                    </div>
+                    <button type="submit">Iniciar Sesión</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Pantalla Principal de Pedidos -->
+        <div id="orderScreen" class="screen">
+            <div class="container">
+                <header class="header">
+                    <h2>🐟 Cevichería</h2>
+                    <div class="header-buttons">
+                        <button id="closeOrdersBtn" class="header-btn">Cerrar Pedidos</button>
+                        <button id="logoutBtn" class="logout-btn">Cerrar Sesión</button>
+                        <label class="import-label" style="margin-left:8px; display:inline-block;">
+                            <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none">
+                            <button id="importExcelBtn" class="header-btn">Importar Excel</button>
+                        </label>
+                    </div>
+                </header>
+
+                <div class="order-form">
+                    <!-- Tipo de Cliente -->
+                    <div class="section">
+                        <h3>Tipo de Cliente</h3>
+                        <div class="client-types">
+                            <label class="radio-option">
+                                <input type="radio" name="clientType" value="mesa" required>
+                                <span>Mesa</span>
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="clientType" value="varios_llevar" required>
+                                <span>Varios Llevar</span>
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="clientType" value="puesto_mercado" required>
+                                <span>Puesto Mercado</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Productos -->
+                    <div class="section">
+                        <h3>Productos</h3>
+                        <div id="productList" class="product-list">
+                            <!-- Los productos se cargarán dinámicamente -->
+                        </div>
+                    </div>
+
+                    <!-- Resumen del Pedido -->
+                    <div class="section">
+                        <h3>Resumen del Pedido</h3>
+                        <div id="orderSummary" class="order-summary">
+                            <p class="empty-cart">No hay productos seleccionados</p>
+                        </div>
+                        <div class="total">
+                            <strong>Total: S/ <span id="totalAmount">0.00</span></strong>
+                        </div>
+                    </div>
+
+                    <button id="placeOrderBtn" class="place-order-btn" disabled>Hacer Pedido</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pantalla de Confirmación -->
+        <div id="confirmScreen" class="screen">
+            <div class="container">
+                <div class="success-message">
+                    <h2>✅ Pedido Realizado</h2>
+                    <p>Su pedido está siendo preparado</p>
+                    <p><strong>Número de pedido: <span id="orderNumber"></span></strong></p>
+                    <button id="newOrderBtn" class="new-order-btn">Hacer Nuevo Pedido</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pantalla de Cerrar Pedidos -->
+        <div id="closeOrdersScreen" class="screen">
+            <div class="container">
+                <header class="header">
+                    <h2>💳 Cerrar Pedidos</h2>
+                    <button id="backToOrdersBtn" class="header-btn">← Volver</button>
+                </header>
+
+                <div id="pendingOrdersList" class="orders-list">
+                    <!-- Los pedidos pendientes se cargarán aquí -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Pago -->
+        <div id="paymentModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>💰 Cerrar Pedido</h3>
+                    <button class="close-modal" id="closeModal">&times;</button>
+                </div>
+                
+                <div class="modal-body">
+                    <div id="orderDetails" class="order-details">
+                        <!-- Detalles del pedido se mostrarán aquí -->
+                    </div>
+
+                    <div class="payment-section">
+                        <h4>Método de Pago</h4>
+                        <div class="payment-methods">
+                            <label class="payment-option">
+                                <input type="radio" name="paymentMethod" value="efectivo" required>
+                                <div class="payment-card">
+                                    <span class="payment-icon">💵</span>
+                                    <span class="payment-text">Efectivo</span>
+                                </div>
+                            </label>
+                            <label class="payment-option">
+                                <input type="radio" name="paymentMethod" value="yape" required>
+                                <div class="payment-card">
+                                    <span class="payment-icon">📱</span>
+                                    <span class="payment-text">Yape</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Sección para foto de Yape -->
+                    <div id="yapePhotoSection" class="yape-photo-section" style="display: none;">
+                        <h4>📸 Comprobante de Yape</h4>
+                        <div class="photo-upload">
+                            <input type="file" id="yapePhoto" accept="image/*" capture="environment">
+                            <div id="photoPreview" class="photo-preview"></div>
+                        </div>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button id="cancelPayment" class="cancel-btn">Cancelar</button>
+                        <button id="confirmPayment" class="confirm-btn" disabled>Cerrar Pedido</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
