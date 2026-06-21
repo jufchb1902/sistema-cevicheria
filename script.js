@@ -681,32 +681,25 @@ async function handleConfirmPayment() {
     }
 }
 
-// Simular guardado de pago en Excel
+// Guardar cierre de pago en Excel
 async function savePaymentToExcel(paymentData) {
     if (CONFIG.USE_MOCK_DATA) {
         await new Promise(resolve => setTimeout(resolve, 1500));
         console.log('Pago registrado localmente:', paymentData);
     } else {
         try {
-            // Obtener el pedido original y agregar info de pago
-            const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-            const order = orders.find(o => o.orderNumber === paymentData.orderNumber);
-            
-            if (order) {
-                // Agregar información de pago al pedido
-                const completeOrderData = {
-                    ...order,
-                    paymentMethod: paymentData.paymentMethod,
-                    closedBy: paymentData.closedBy,
-                    closedAt: paymentData.closedAt,
-                    hasYapePhoto: paymentData.hasPhoto,
-                    status: 'Cerrado'
-                };
-                
-                // Guardar el pedido completo con información de pago
-                await window.googleSheetsSecureClient.saveOrderComplete(completeOrderData);
-            }
-            
+            // Solo actualiza el estado del pedido y registra el pago.
+            // NO reenvía cabecera/detalle (eso ya se guardó al crear el pedido).
+            const orderToClose = {
+                orderNumber: paymentData.orderNumber,
+                paymentMethod: paymentData.paymentMethod,
+                closedBy: paymentData.closedBy,
+                closedAt: paymentData.closedAt,
+                hasYapePhoto: paymentData.hasPhoto
+            };
+
+            await window.googleSheetsSecureClient.closeOrder(orderToClose);
+
             console.log('Pago registrado de forma segura en Google Sheets:', paymentData);
         } catch (error) {
             console.error('Error guardando pago en Google Sheets seguro:', error);
