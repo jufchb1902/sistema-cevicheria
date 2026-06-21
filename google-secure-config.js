@@ -1,7 +1,7 @@
 // Configuración SEGURA para Google Sheets usando Apps Script
 const GOOGLE_SECURE_CONFIG = {
     // Tu Apps Script URL (la obtienes después de deployar)
-    APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbz6BeBpq8HKlZ1vY-LSBfcVgDeZWIDR3BUXKLsjITOOGDBH9sKTGeVdOndNAqPy_OJ2/exec', // Cambiar por la URL real
+    APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbyvQ5plv80G95JXZF62kmcrH7Y_awhCqGc_OGtPYp8LIHT4Qez9Jqh562wKsO7ehtMG/exec', // Cambiar por la URL real
     
     // ID de tu Google Sheets (no cambiar)
     SPREADSHEET_ID: '1KeHJ2MIWuepvvGFDpg3cnwwAPfQuqg_8dy2Ts_hz02w',
