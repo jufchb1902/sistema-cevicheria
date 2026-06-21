@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="styles.css">
     <script src="https://apis.google.com/js/api.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="google-secure-config.js"></script>
 </head>
 <body>
     <div id="app">
@@ -38,6 +37,7 @@
                 <header class="header">
                     <h2>🐟 Cevichería</h2>
                     <div class="header-buttons">
+                        <button id="historyBtn" class="header-btn">Historial</button>
                         <button id="closeOrdersBtn" class="header-btn">Cerrar Pedidos</button>
                         <button id="logoutBtn" class="logout-btn">Cerrar Sesión</button>
                         <label class="import-label" style="margin-left:8px; display:inline-block;">
@@ -70,7 +70,8 @@
                     <!-- Productos -->
                     <div class="section">
                         <h3>Productos</h3>
-                        <div id="productList" class="product-list">
+                            <div id="categoryChips" class="category-nav"></div>
+                            <div id="productList" class="product-list">
                             <!-- Los productos se cargarán dinámicamente -->
                         </div>
                     </div>
@@ -113,6 +114,20 @@
 
                 <div id="pendingOrdersList" class="orders-list">
                     <!-- Los pedidos pendientes se cargarán aquí -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Pantalla de Historial (Pedidos Cerrados) -->
+        <div id="historyScreen" class="screen">
+            <div class="container">
+                <header class="header">
+                    <h2>📚 Historial de Pedidos</h2>
+                    <button id="backFromHistoryBtn" class="header-btn">← Volver</button>
+                </header>
+
+                <div id="closedOrdersList" class="orders-list">
+                    <!-- Pedidos cerrados se cargarán aquí -->
                 </div>
             </div>
         </div>
@@ -169,6 +184,7 @@
     </div>
 
     <script src="config.js"></script>
+    <script src="google-secure-config.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
