@@ -1,23 +1,76 @@
-// Configuración SEGURA para Google Sheets usando Apps Script
+// Configuración SEGURA para Google Sheets usando Apps Script + JSONP
+// JSONP evita por completo el problema de CORS: en vez de usar fetch(),
+// carga la respuesta como un <script>, que el navegador nunca bloquea por CORS.
 const GOOGLE_SECURE_CONFIG = {
     // Tu Apps Script URL (la obtienes después de deployar)
-    APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycby9fvPu5mvu3Yn176-OuQgFFa9rrRS1picMy2xSSTj4woyOZuMeK9ER8C-3M6i2X5N4/exec', // Cambiar por la URL real
-    
+    APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbx4l7zZV4TCJW95ze6eEKDskU4PL22mmG0flP_n_jY8pImNrA_WqwN0f_exbaIze9hy/exec', // Cambiar por la URL real
+
     // ID de tu Google Sheets (no cambiar)
     SPREADSHEET_ID: '1KeHJ2MIWuepvvGFDpg3cnwwAPfQuqg_8dy2Ts_hz02w',
-    
+
     // Usar método seguro (Apps Script)
     USE_SECURE_METHOD: true,
-    
+
     // Nombres de las hojas
     SHEET_NAMES: {
         usuarios: 'Usuario',
-        productos: 'Productos', 
+        productos: 'Productos',
         cabecera: 'Cabecera',
         detalle: 'Detalle',
         pagos: 'Pagos'
-    }
+    },
+
+    // Tiempo máximo de espera por respuesta (ms)
+    JSONP_TIMEOUT: 15000
 };
+
+// Hace una petición JSONP a una URL dada con parámetros.
+// No usa fetch ni XHR, así que NUNCA dispara CORS / preflight.
+function jsonpRequest(baseUrl, params) {
+    return new Promise((resolve, reject) => {
+        const callbackName = 'jsonp_cb_' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
+        const script = document.createElement('script');
+        let finished = false;
+
+        const cleanup = () => {
+            finished = true;
+            delete window[callbackName];
+            if (script.parentNode) {
+                script.parentNode.removeChild(script);
+            }
+            clearTimeout(timeoutId);
+        };
+
+        const timeoutId = setTimeout(() => {
+            if (finished) return;
+            cleanup();
+            reject(new Error('Tiempo de espera agotado conectando con Google Sheets'));
+        }, GOOGLE_SECURE_CONFIG.JSONP_TIMEOUT);
+
+        window[callbackName] = function(data) {
+            if (finished) return;
+            cleanup();
+            resolve(data);
+        };
+
+        const url = new URL(baseUrl);
+        Object.keys(params).forEach(key => {
+            if (params[key] !== undefined && params[key] !== null) {
+                url.searchParams.append(key, params[key]);
+            }
+        });
+        url.searchParams.append('callback', callbackName);
+
+        script.src = url.toString();
+        script.onerror = () => {
+            if (finished) return;
+            cleanup();
+            reject(new Error('No se pudo conectar con Google Sheets (revisa la URL del Apps Script)'));
+        };
+
+        document.body.appendChild(script);
+    });
+}
 
 // Cliente SEGURO para Google Sheets
 class GoogleSheetsSecureClient {
@@ -26,37 +79,21 @@ class GoogleSheetsSecureClient {
     }
 
     async initialize() {
-        console.log('Inicializando cliente seguro de Google Sheets...');
+        console.log('Inicializando cliente seguro de Google Sheets (modo JSONP)...');
         this.isInitialized = true;
         return true;
     }
 
-    // Hacer petición al Apps Script
+    // Petición genérica vía JSONP
     async makeRequest(action, params = {}) {
         try {
-            const url = new URL(GOOGLE_SECURE_CONFIG.APPS_SCRIPT_URL);
-            url.searchParams.append('action', action);
-            
-            // Agregar parámetros
-            Object.keys(params).forEach(key => {
-                url.searchParams.append(key, params[key]);
+            console.log(`Haciendo petición JSONP: ${action}`, params);
+
+            const data = await jsonpRequest(GOOGLE_SECURE_CONFIG.APPS_SCRIPT_URL, {
+                action,
+                ...params
             });
 
-            console.log(`Haciendo petición segura: ${action}`, params);
-
-            const response = await fetch(url.toString(), {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
-            }
-
-            const data = await response.json();
-            
             if (!data.success) {
                 throw new Error(data.error || 'Error desconocido');
             }
@@ -68,47 +105,16 @@ class GoogleSheetsSecureClient {
         }
     }
 
-    // Hacer petición POST para guardar datos
-    async makePostRequest(data) {
-        try {
-            console.log('Guardando datos de forma segura...', data);
-
-            const response = await fetch(GOOGLE_SECURE_CONFIG.APPS_SCRIPT_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
-            });
-
-            if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
-            }
-
-            const result = await response.json();
-            
-            if (!result.success) {
-                throw new Error(result.error || 'Error guardando datos');
-            }
-
-            return result;
-        } catch (error) {
-            console.error('Error en petición POST:', error);
-            throw error;
-        }
-    }
-
     // Obtener usuarios
     async getUsers() {
         try {
             const result = await this.makeRequest('getUsers');
             const data = result.data;
-            
+
             if (data.length <= 1) {
                 throw new Error('No se encontraron usuarios');
             }
-            
-            // Parsear datos (primera fila = headers)
+
             const users = [];
             for (let i = 1; i < data.length; i++) {
                 if (data[i][0] && data[i][1]) {
@@ -118,7 +124,7 @@ class GoogleSheetsSecureClient {
                     });
                 }
             }
-            
+
             console.log('Usuarios obtenidos de forma segura:', users);
             return users;
         } catch (error) {
@@ -132,12 +138,11 @@ class GoogleSheetsSecureClient {
         try {
             const result = await this.makeRequest('getProducts');
             const data = result.data;
-            
+
             if (data.length <= 1) {
                 throw new Error('No se encontraron productos');
             }
-            
-            // Parsear datos (primera fila = headers)
+
             const products = [];
             for (let i = 1; i < data.length; i++) {
                 if (data[i][0] && data[i][1]) {
@@ -149,7 +154,7 @@ class GoogleSheetsSecureClient {
                     });
                 }
             }
-            
+
             console.log('Productos obtenidos de forma segura:', products);
             return products;
         } catch (error) {
@@ -158,11 +163,10 @@ class GoogleSheetsSecureClient {
         }
     }
 
-    // Guardar pedido completo
+    // Guardar pedido nuevo (estado "Preparando")
     async saveOrderComplete(orderData) {
         try {
-            const saveData = {
-                action: 'saveOrder',
+            const params = {
                 orderNumber: orderData.orderNumber,
                 clientType: orderData.clientType,
                 user: orderData.user,
@@ -170,24 +174,15 @@ class GoogleSheetsSecureClient {
                 time: orderData.datetime.time,
                 total: orderData.total,
                 status: orderData.status,
-                items: orderData.items.map(item => ({
+                items: JSON.stringify(orderData.items.map(item => ({
                     productName: item.product.nombre,
                     quantity: item.quantity,
                     unitPrice: item.product.precio,
                     subtotal: item.subtotal
-                }))
+                })))
             };
 
-            // Agregar datos de pago si existen
-            if (orderData.paymentMethod) {
-                saveData.paymentMethod = orderData.paymentMethod;
-                saveData.closedBy = orderData.closedBy;
-                saveData.closedDate = orderData.closedAt.date;
-                saveData.closedTime = orderData.closedAt.time;
-                saveData.hasYapePhoto = orderData.hasYapePhoto || false;
-            }
-
-            const result = await this.makePostRequest(saveData);
+            const result = await this.makeRequest('saveOrder', params);
             console.log('Pedido guardado de forma segura:', result);
             return true;
         } catch (error) {
@@ -196,23 +191,44 @@ class GoogleSheetsSecureClient {
         }
     }
 
+    // Cerrar un pedido existente: SOLO actualiza estado y registra el pago.
+    // (antes esto reenviaba todo el pedido y duplicaba filas en Cabecera/Detalle)
+    async closeOrder(orderData) {
+        try {
+            const params = {
+                orderNumber: orderData.orderNumber,
+                paymentMethod: orderData.paymentMethod,
+                closedBy: orderData.closedBy,
+                closedDate: orderData.closedAt.date,
+                closedTime: orderData.closedAt.time,
+                hasYapePhoto: orderData.hasYapePhoto ? 'true' : 'false'
+            };
+
+            const result = await this.makeRequest('closeOrder', params);
+            console.log('Pedido cerrado de forma segura:', result);
+            return true;
+        } catch (error) {
+            console.error('Error cerrando pedido:', error);
+            throw error;
+        }
+    }
+
     // Método de prueba
     async testConnection() {
         try {
-            console.log('Probando conexión segura...');
-            
+            console.log('Probando conexión segura (JSONP)...');
+
             if (!GOOGLE_SECURE_CONFIG.APPS_SCRIPT_URL || GOOGLE_SECURE_CONFIG.APPS_SCRIPT_URL.includes('TU_APPS_SCRIPT_URL_AQUI')) {
                 throw new Error('Apps Script URL no configurada. Sigue los pasos de configuración segura.');
             }
 
-            // Intentar obtener usuarios como prueba
             const users = await this.getUsers();
-            
+
             return {
                 success: true,
                 message: 'Conexión segura exitosa',
                 sampleData: users,
-                security: 'Datos protegidos mediante Google Apps Script'
+                security: 'Datos protegidos mediante Google Apps Script (JSONP, sin CORS)'
             };
         } catch (error) {
             return {
